@@ -5,6 +5,7 @@ interface ImageData {
   src: string
   width: number
   height: number
+  filename: string
 }
 
 function App() {
@@ -27,7 +28,8 @@ function App() {
           setSelectedImage({
             src: e.target?.result as string,
             width: img.width,
-            height: img.height
+            height: img.height,
+            filename: file.name.replace(/\.[^/.]+$/, '') // Remove file extension
           })
           setCroppedImages([])
         }
@@ -218,10 +220,11 @@ function App() {
 
   const downloadImage = useCallback((dataUrl: string, index: number) => {
     const link = document.createElement('a')
-    link.download = `slice_${index + 1}.png`
+    const filename = selectedImage?.filename || 'image'
+    link.download = `${filename}_slice_${index + 1}.png`
     link.href = dataUrl
     link.click()
-  }, [])
+  }, [selectedImage])
 
   const downloadAll = useCallback(() => {
     croppedImages.forEach((image, index) => {
