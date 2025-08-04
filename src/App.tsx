@@ -13,7 +13,8 @@ function App() {
   const [rotation, setRotation] = useState(0)
   const [sliceAmount, setSliceAmount] = useState(2)
   const [useCustomRatios, setUseCustomRatios] = useState(false)
-  const [customRatio, setCustomRatio] = useState<string>('1')
+  const [customWidth, setCustomWidth] = useState<string>('1')
+  const [customHeight, setCustomHeight] = useState<string>('1')
   const [croppedImages, setCroppedImages] = useState<string[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -43,28 +44,19 @@ function App() {
     setRotation((prev) => (prev + 90) % 360)
   }, [])
 
-  const parseRatio = useCallback((ratio: string): { width: number; height: number } | null => {
-    // Try to parse as ratio format (e.g., "3:5")
-    const ratioMatch = ratio.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/)
-    if (ratioMatch) {
-      return {
-        width: parseFloat(ratioMatch[1]),
-        height: parseFloat(ratioMatch[2])
-      }
+  const parseCustomRatio = useCallback((): { width: number; height: number } | null => {
+    const width = parseFloat(customWidth)
+    const height = parseFloat(customHeight)
+    
+    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      return null
     }
     
-    // Try to parse as single number (e.g., "1", "1.5", "0.8")
-    const singleMatch = ratio.match(/^(\d+(?:\.\d+)?)$/)
-    if (singleMatch) {
-      const value = parseFloat(singleMatch[1])
-      return {
-        width: value,
-        height: 1
-      }
+    return {
+      width,
+      height
     }
-    
-    return null
-  }, [])
+  }, [customWidth, customHeight])
 
   const cropImage = useCallback(() => {
     if (!selectedImage || !canvasRef.current) return
@@ -98,8 +90,8 @@ function App() {
       if (useCustomRatios) {
         // Use custom ratios
         
-        // Parse the single custom ratio
-        const ratio = parseRatio(customRatio)
+        // Parse the custom ratio from width and height inputs
+        const ratio = parseCustomRatio()
         
         if (!ratio) {
           // Fallback to equal slices if no valid ratios
@@ -216,7 +208,7 @@ function App() {
       setCroppedImages(images)
     }
     img.src = selectedImage.src
-  }, [selectedImage, rotation, sliceAmount, useCustomRatios, customRatio, parseRatio])
+  }, [selectedImage, rotation, sliceAmount, useCustomRatios, parseCustomRatio])
 
   const downloadImage = useCallback((dataUrl: string, index: number) => {
     const link = document.createElement('a')
@@ -283,17 +275,29 @@ function App() {
             </label>
           </div>
           
-          {useCustomRatios && (
+                    {useCustomRatios && (
             <div className="ratios-section">
               <label>比例:</label>
               <div className="ratios-inputs">
                 <div className="ratio-input-group">
                   <input
-                    type="text"
-                    value={customRatio}
-                    onChange={(e) => setCustomRatio(e.target.value)}
-                                          placeholder="例如: 1 或 3:5"
+                    type="number"
+                    value={customWidth}
+                    onChange={(e) => setCustomWidth(e.target.value)}
+                    placeholder="寬度"
                     className="ratio-input"
+                    min="0.1"
+                    step="0.1"
+                  />
+                  <span style={{ color: '#333', fontWeight: 'bold' }}>:</span>
+                  <input
+                    type="number"
+                    value={customHeight}
+                    onChange={(e) => setCustomHeight(e.target.value)}
+                    placeholder="高度"
+                    className="ratio-input"
+                    min="0.1"
+                    step="0.1"
                   />
                 </div>
               </div>
