@@ -11,6 +11,8 @@ function App() {
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null)
   const [rotation, setRotation] = useState(0)
   const [sliceAmount, setSliceAmount] = useState(2)
+  const [useCustomRatios, setUseCustomRatios] = useState(false)
+  const [customRatio, setCustomRatio] = useState<string>('1')
   const [croppedImages, setCroppedImages] = useState<string[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -37,6 +39,29 @@ function App() {
 
   const rotateImage = useCallback(() => {
     setRotation((prev) => (prev + 90) % 360)
+  }, [])
+
+  const parseRatio = useCallback((ratio: string): { width: number; height: number } | null => {
+    // Try to parse as ratio format (e.g., "3:5")
+    const ratioMatch = ratio.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/)
+    if (ratioMatch) {
+      return {
+        width: parseFloat(ratioMatch[1]),
+        height: parseFloat(ratioMatch[2])
+      }
+    }
+    
+    // Try to parse as single number (e.g., "1", "1.5", "0.8")
+    const singleMatch = ratio.match(/^(\d+(?:\.\d+)?)$/)
+    if (singleMatch) {
+      const value = parseFloat(singleMatch[1])
+      return {
+        width: value,
+        height: 1
+      }
+    }
+    
+    return null
   }, [])
 
   const cropImage = useCallback(() => {
@@ -66,49 +91,130 @@ function App() {
       ctx.drawImage(img, -img.width / 2, -img.height / 2)
       ctx.restore()
 
-      // Calculate slice width to use all pixels
-      const baseSliceWidth = Math.floor(canvasWidth / sliceAmount)
-      const remainingPixels = canvasWidth - (baseSliceWidth * sliceAmount)
       const images: string[] = []
 
-      // Create slices
-      for (let i = 0; i < sliceAmount; i++) {
-        const sliceCanvas = document.createElement('canvas')
-        const sliceCtx = sliceCanvas.getContext('2d')
-        if (!sliceCtx) continue
-
-        // Calculate actual slice width (distribute remaining pixels to first slices)
-        const actualSliceWidth = baseSliceWidth + (i < remainingPixels ? 1 : 0)
+      if (useCustomRatios) {
+        // Use custom ratios
         
-        sliceCanvas.width = actualSliceWidth
-        sliceCanvas.height = canvasHeight
+        // Parse the single custom ratio
+        const ratio = parseRatio(customRatio)
+        
+        if (!ratio) {
+          // Fallback to equal slices if no valid ratios
+          const baseSliceWidth = Math.floor(canvasWidth / sliceAmount)
+          const remainingPixels = canvasWidth - (baseSliceWidth * sliceAmount)
+          
+          for (let i = 0; i < sliceAmount; i++) {
+            const sliceCanvas = document.createElement('canvas')
+            const sliceCtx = sliceCanvas.getContext('2d')
+            if (!sliceCtx) continue
 
-        // Calculate source position
-        let sourceX = 0
-        for (let j = 0; j < i; j++) {
-          sourceX += baseSliceWidth + (j < remainingPixels ? 1 : 0)
+            const actualSliceWidth = baseSliceWidth + (i < remainingPixels ? 1 : 0)
+            sliceCanvas.width = actualSliceWidth
+            sliceCanvas.height = canvasHeight
+
+            let sourceX = 0
+            for (let j = 0; j < i; j++) {
+              sourceX += baseSliceWidth + (j < remainingPixels ? 1 : 0)
+            }
+
+            sliceCtx.drawImage(
+              canvas,
+              sourceX,
+              0,
+              actualSliceWidth,
+              canvasHeight,
+              0,
+              0,
+              actualSliceWidth,
+              canvasHeight
+            )
+
+            images.push(sliceCanvas.toDataURL('image/png'))
+          }
+        } else {
+          // Use the custom ratio for all slices
+          
+          // Calculate equal slice width
+          const sliceWidth = Math.floor(canvasWidth / sliceAmount)
+          const remainingPixels = canvasWidth - (sliceWidth * sliceAmount)
+          
+          for (let i = 0; i < sliceAmount; i++) {
+            const sliceCanvas = document.createElement('canvas')
+            const sliceCtx = sliceCanvas.getContext('2d')
+            if (!sliceCtx) continue
+
+            // Calculate actual slice width (distribute remaining pixels)
+            const actualSliceWidth = sliceWidth + (i < remainingPixels ? 1 : 0)
+            
+            // Calculate target height based on ratio
+            const targetHeight = Math.floor(actualSliceWidth * (ratio.height / ratio.width))
+            
+            sliceCanvas.width = actualSliceWidth
+            sliceCanvas.height = targetHeight
+
+            // Calculate source position
+            let sourceX = 0
+            for (let j = 0; j < i; j++) {
+              sourceX += sliceWidth + (j < remainingPixels ? 1 : 0)
+            }
+
+            // Draw the slice with the target aspect ratio
+            sliceCtx.drawImage(
+              canvas,
+              sourceX,
+              0,
+              actualSliceWidth,
+              canvasHeight,
+              0,
+              0,
+              actualSliceWidth,
+              targetHeight
+            )
+
+            images.push(sliceCanvas.toDataURL('image/png'))
+          }
         }
+      } else {
+        // Use equal slices
+        const baseSliceWidth = Math.floor(canvasWidth / sliceAmount)
+        const remainingPixels = canvasWidth - (baseSliceWidth * sliceAmount)
 
-        // Draw the slice
-        sliceCtx.drawImage(
-          canvas,
-          sourceX,
-          0,
-          actualSliceWidth,
-          canvasHeight,
-          0,
-          0,
-          actualSliceWidth,
-          canvasHeight
-        )
+        for (let i = 0; i < sliceAmount; i++) {
+          const sliceCanvas = document.createElement('canvas')
+          const sliceCtx = sliceCanvas.getContext('2d')
+          if (!sliceCtx) continue
 
-        images.push(sliceCanvas.toDataURL('image/png'))
+          const actualSliceWidth = baseSliceWidth + (i < remainingPixels ? 1 : 0)
+          
+          sliceCanvas.width = actualSliceWidth
+          sliceCanvas.height = canvasHeight
+
+          let sourceX = 0
+          for (let j = 0; j < i; j++) {
+            sourceX += baseSliceWidth + (j < remainingPixels ? 1 : 0)
+          }
+
+          sliceCtx.drawImage(
+            canvas,
+            sourceX,
+            0,
+            actualSliceWidth,
+            canvasHeight,
+            0,
+            0,
+            actualSliceWidth,
+            canvasHeight
+          )
+
+          images.push(sliceCanvas.toDataURL('image/png'))
+        }
       }
 
       setCroppedImages(images)
     }
     img.src = selectedImage.src
-  }, [selectedImage, rotation, sliceAmount])
+  }, [selectedImage, rotation, sliceAmount, useCustomRatios, customRatio, parseRatio])
 
   const downloadImage = useCallback((dataUrl: string, index: number) => {
     const link = document.createElement('a')
@@ -127,7 +233,7 @@ function App() {
 
   return (
     <div className="app">
-      <h1>Image Cropper</h1>
+      <h1>圖片裁切器</h1>
       
       <div className="upload-section">
         <input
@@ -141,19 +247,19 @@ function App() {
           className="upload-btn"
           onClick={() => fileInputRef.current?.click()}
         >
-          Load Image
+          載入圖片
         </button>
       </div>
 
       {selectedImage && (
         <div className="controls">
           <div className="control-group">
-            <label>Rotation: {rotation}°</label>
-            <button onClick={rotateImage}>Rotate 90°</button>
+            <label>旋轉: {rotation}°</label>
+            <button onClick={rotateImage}>旋轉 90°</button>
           </div>
           
           <div className="control-group">
-            <label>Slice Amount: {sliceAmount}</label>
+            <label>切片數量: {sliceAmount}</label>
             <input
               type="range"
               min="2"
@@ -163,15 +269,43 @@ function App() {
             />
           </div>
           
+          <div className="control-group">
+            <label>
+              <input
+                type="checkbox"
+                checked={useCustomRatios}
+                onChange={(e) => setUseCustomRatios(e.target.checked)}
+              />
+              使用自訂比例
+            </label>
+          </div>
+          
+          {useCustomRatios && (
+            <div className="ratios-section">
+              <label>比例:</label>
+              <div className="ratios-inputs">
+                <div className="ratio-input-group">
+                  <input
+                    type="text"
+                    value={customRatio}
+                    onChange={(e) => setCustomRatio(e.target.value)}
+                                          placeholder="例如: 1 或 3:5"
+                    className="ratio-input"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
           <button onClick={cropImage} className="crop-btn">
-            Crop Image
+            裁切圖片
           </button>
         </div>
       )}
 
       {selectedImage && (
         <div className="preview-section">
-          <h3>Original Image</h3>
+          <h3>原始圖片</h3>
           <div 
             className="image-container"
             style={{
@@ -184,7 +318,7 @@ function App() {
           >
             <img
               src={selectedImage.src}
-              alt="Original"
+              alt="原始"
               style={{
                 transform: `rotate(${rotation}deg)`,
                 width: '100%',
@@ -199,9 +333,9 @@ function App() {
       {croppedImages.length > 0 && (
         <div className="results-section">
           <div className="results-header">
-            <h3>Cropped Slices ({croppedImages.length})</h3>
+            <h3>裁切切片 ({croppedImages.length})</h3>
             <button onClick={downloadAll} className="download-all-btn">
-              Download All
+              下載全部
             </button>
           </div>
           <div className="slices-container">
@@ -215,12 +349,12 @@ function App() {
             >
               {croppedImages.map((image, index) => (
                 <div key={index} className="slice-item">
-                  <img src={image} alt={`Slice ${index + 1}`} />
+                  <img src={image} alt={`切片 ${index + 1}`} />
                   <button 
                     onClick={() => downloadImage(image, index)}
                     className="download-btn"
                   >
-                    Download Slice {index + 1}
+                    下載切片 {index + 1}
                   </button>
                 </div>
               ))}
