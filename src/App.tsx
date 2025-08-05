@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import './App.css'
 
 interface ImageData {
@@ -17,19 +17,109 @@ interface VideoData {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'image' | 'video'>('image')
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null)
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null)
   const [rotation, setRotation] = useState(0)
-  const [sliceAmount, setSliceAmount] = useState(2)
-  const [useCustomRatios, setUseCustomRatios] = useState(false)
-  const [customWidth, setCustomWidth] = useState<string>('1')
-  const [customHeight, setCustomHeight] = useState<string>('1')
+  const [sliceAmount, setSliceAmount] = useState(3)
   const [croppedImages, setCroppedImages] = useState<string[]>([])
   const [croppedVideos, setCroppedVideos] = useState<string[]>([])
+  const [useCustomRatios, setUseCustomRatios] = useState(false)
+  const [customWidth, setCustomWidth] = useState('1')
+  const [customHeight, setCustomHeight] = useState('1')
+  const [activeTab, setActiveTab] = useState<'image' | 'video'>('image')
+  
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoFileInputRef = useRef<HTMLInputElement>(null)
+
+  const processVideoSlices = useCallback(async (videoFile: File) => {
+    // Create video slices using MediaRecorder with MP4-compatible settings
+    const videos: string[] = []
+    
+    const video = document.createElement('video')
+    video.src = URL.createObjectURL(videoFile)
+    video.muted = true
+    
+    video.onloadeddata = async () => {
+      // Calculate slice dimensions
+      const isVertical = rotation === 90 || rotation === 270
+      const videoWidth = isVertical ? video.videoHeight : video.videoWidth
+      const videoHeight = isVertical ? video.videoWidth : video.videoHeight
+      
+      const sliceWidth = Math.floor(videoWidth / sliceAmount)
+      
+      for (let i = 0; i < sliceAmount; i++) {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) continue
+
+        const sourceX = i * sliceWidth
+        
+        canvas.width = sliceWidth
+        canvas.height = videoHeight
+        
+        // Create MediaRecorder for this slice
+        const stream = canvas.captureStream(30) // 30 FPS
+        
+        // Try to use MP4 format with H.264 codec
+        let mimeType = 'video/mp4'
+        if (!MediaRecorder.isTypeSupported('video/mp4')) {
+          // Fallback to WebM with VP8 codec
+          mimeType = 'video/webm;codecs=vp8'
+        }
+        
+        const mediaRecorder = new MediaRecorder(stream, { mimeType })
+        
+        const chunks: Blob[] = []
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data)
+          }
+        }
+        
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mimeType })
+          const url = URL.createObjectURL(blob)
+          videos.push(url)
+          
+          if (videos.length === sliceAmount) {
+            setCroppedVideos(videos)
+          }
+        }
+        
+        // Start recording
+        mediaRecorder.start()
+        
+        // Play video and capture frames
+        video.currentTime = 0
+        video.play()
+        
+        const captureFrame = () => {
+          if (video.ended || video.paused) {
+            mediaRecorder.stop()
+            return
+          }
+          
+          // Draw the video slice frame
+          ctx.drawImage(
+            video,
+            sourceX,
+            0,
+            sliceWidth,
+            videoHeight,
+            0,
+            0,
+            sliceWidth,
+            videoHeight
+          )
+          
+          requestAnimationFrame(captureFrame)
+        }
+        
+        captureFrame()
+      }
+    }
+  }, [selectedVideo, rotation, sliceAmount])
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -87,100 +177,6 @@ function App() {
       height
     }
   }, [customWidth, customHeight])
-
-  const processVideoSlices = useCallback(async (videoFile: File) => {
-    // Create actual video slices using MediaRecorder API
-    const videos: string[] = []
-    
-    const video = document.createElement('video')
-    video.src = URL.createObjectURL(videoFile)
-    video.muted = true // Required for MediaRecorder
-    
-    video.onloadeddata = async () => {
-      // Calculate slice dimensions
-      const isVertical = rotation === 90 || rotation === 270
-      const videoWidth = isVertical ? video.videoHeight : video.videoWidth
-      const videoHeight = isVertical ? video.videoWidth : video.videoHeight
-      
-      const sliceWidth = Math.floor(videoWidth / sliceAmount)
-      
-      for (let i = 0; i < sliceAmount; i++) {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        if (!ctx) continue
-
-        const sourceX = i * sliceWidth
-        
-        canvas.width = sliceWidth
-        canvas.height = videoHeight
-        
-        // Create MediaRecorder for this slice
-        const stream = canvas.captureStream(30) // 30 FPS
-        
-        // Check for supported MIME types
-        let mimeType = 'video/webm'
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-          mimeType = 'video/webm;codecs=vp8'
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-          mimeType = 'video/webm'
-        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-          mimeType = 'video/mp4'
-        }
-        
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: mimeType
-        })
-        
-        const chunks: Blob[] = []
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            chunks.push(event.data)
-          }
-        }
-        
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(chunks, { type: mimeType })
-          const url = URL.createObjectURL(blob)
-          videos.push(url)
-          
-          if (videos.length === sliceAmount) {
-            setCroppedVideos(videos)
-          }
-        }
-        
-        // Start recording
-        mediaRecorder.start()
-        
-        // Play video and capture frames
-        video.currentTime = 0
-        video.play()
-        
-        const captureFrame = () => {
-          if (video.ended || video.paused) {
-            mediaRecorder.stop()
-            return
-          }
-          
-          // Draw the video slice frame
-          ctx.drawImage(
-            video,
-            sourceX,
-            0,
-            sliceWidth,
-            videoHeight,
-            0,
-            0,
-            sliceWidth,
-            videoHeight
-          )
-          
-          requestAnimationFrame(captureFrame)
-        }
-        
-        captureFrame()
-      }
-    }
-  }, [selectedVideo, rotation, sliceAmount])
 
   const cropImage = useCallback(async () => {
     if (activeTab === 'image' && selectedImage) {
@@ -350,9 +346,8 @@ function App() {
   const downloadVideo = useCallback((dataUrl: string, index: number) => {
     const link = document.createElement('a')
     const filename = selectedVideo?.filename || 'video'
-    // Use appropriate extension based on browser support
-    const extension = MediaRecorder.isTypeSupported('video/webm') ? 'webm' : 'mp4'
-    link.download = `${filename}_slice_${index + 1}.${extension}`
+    // Use MP4 extension for better compatibility
+    link.download = `${filename}_slice_${index + 1}.mp4`
     link.href = dataUrl
     link.click()
   }, [selectedVideo])
