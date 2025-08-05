@@ -367,6 +367,62 @@ h1 {
     align-self: flex-start;
   }
   
+  .tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+    gap: 0.5rem;
+  }
+  
+  .tab {
+    background: rgba(255, 255, 255, 0.6);
+    color: #4a4a4a;
+    border: 1px solid rgba(74, 74, 74, 0.2);
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 400;
+    font-size: 0.95rem;
+    backdrop-filter: blur(10px);
+  }
+  
+  .tab.active {
+    background: rgba(74, 74, 74, 0.8);
+    color: white;
+    border-color: rgba(74, 74, 74, 0.4);
+  }
+  
+  .tab:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(74, 74, 74, 0.3);
+  }
+  
+  .tab.active:hover {
+    background: rgba(74, 74, 74, 0.9);
+  }
+  
+  .tab-content {
+    width: 100%;
+  }
+  
+  .video-container {
+    text-align: center;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .video-container video {
+    display: block;
+    transition: transform 0.3s ease;
+  }
+  
   @media (max-width: 768px) {
   .app {
     padding: 1rem;
