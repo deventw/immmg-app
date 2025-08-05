@@ -27,6 +27,7 @@ function App() {
   const [customWidth, setCustomWidth] = useState('1')
   const [customHeight, setCustomHeight] = useState('1')
   const [activeTab, setActiveTab] = useState<'image' | 'video'>('image')
+  const [isVideoProcessing, setIsVideoProcessing] = useState(false)
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -35,6 +36,8 @@ function App() {
   const processVideoSlices = useCallback(async (videoFile: File) => {
     // Create video slices using MediaRecorder with MP4-compatible settings
     const videos: string[] = []
+    
+    setIsVideoProcessing(true)
     
     const video = document.createElement('video')
     video.src = URL.createObjectURL(videoFile)
@@ -84,6 +87,7 @@ function App() {
           
           if (videos.length === sliceAmount) {
             setCroppedVideos(videos)
+            setIsVideoProcessing(false)
           }
         }
         
@@ -120,6 +124,18 @@ function App() {
       }
     }
   }, [selectedVideo, rotation, sliceAmount])
+
+  const handleVideoCrop = useCallback(() => {
+    if (selectedVideo) {
+      // Create a File object from the video data
+      fetch(selectedVideo.src)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], selectedVideo.filename, { type: 'video/mp4' })
+          processVideoSlices(file)
+        })
+    }
+  }, [selectedVideo, processVideoSlices])
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -607,8 +623,19 @@ function App() {
                 </div>
               )}
               
-              <button onClick={cropImage} className="crop-btn">
-                裁切影片
+              <button 
+                onClick={handleVideoCrop}
+                disabled={!selectedVideo || isVideoProcessing}
+                className="crop-button"
+              >
+                {isVideoProcessing ? (
+                  <span className="loading-spinner">
+                    <span className="spinner"></span>
+                    處理中...
+                  </span>
+                ) : (
+                  '裁切影片'
+                )}
               </button>
             </div>
           )}

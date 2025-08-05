@@ -456,3 +456,35 @@ h1 {
     padding: 0.5rem;
   }
 }
+
+/* Loading spinner styles */
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.crop-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #8b8b8b;
+}
+
+.crop-button:disabled:hover {
+  background: #8b8b8b;
+  transform: none;
+}
