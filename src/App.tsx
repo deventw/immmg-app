@@ -24,8 +24,7 @@ function App() {
   const [croppedImages, setCroppedImages] = useState<string[]>([])
   const [croppedVideos, setCroppedVideos] = useState<string[]>([])
   const [useCustomRatios, setUseCustomRatios] = useState(false)
-  const [customWidth, setCustomWidth] = useState('1')
-  const [customHeight, setCustomHeight] = useState('1')
+  const [customRatio, setCustomRatio] = useState('1')
   const [activeTab, setActiveTab] = useState<'image' | 'video'>('image')
   const [isVideoProcessing, setIsVideoProcessing] = useState(false)
   
@@ -181,18 +180,34 @@ function App() {
   }, [])
 
   const parseCustomRatio = useCallback((): { width: number; height: number } | null => {
-    const width = parseFloat(customWidth)
-    const height = parseFloat(customHeight)
+    const input = customRatio.trim()
     
-    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+    // Check if input contains colon (ratio format like "4:3")
+    if (input.includes(':')) {
+      const parts = input.split(':')
+      if (parts.length === 2) {
+        const width = parseFloat(parts[0])
+        const height = parseFloat(parts[1])
+        
+        if (!isNaN(width) && !isNaN(height) && width > 0 && height > 0) {
+          return { width, height }
+        }
+      }
+      return null
+    }
+    
+    // Otherwise treat as decimal ratio
+    const ratio = parseFloat(input)
+    
+    if (isNaN(ratio) || ratio <= 0) {
       return null
     }
     
     return {
-      width,
-      height
+      width: ratio,
+      height: 1
     }
-  }, [customWidth, customHeight])
+  }, [customRatio])
 
   const cropImage = useCallback(async () => {
     if (activeTab === 'image' && selectedImage) {
@@ -456,23 +471,11 @@ function App() {
               <div className="ratios-inputs">
                 <div className="ratio-input-group">
                   <input
-                    type="number"
-                    value={customWidth}
-                    onChange={(e) => setCustomWidth(e.target.value)}
-                    placeholder="寬度"
+                    type="text"
+                    value={customRatio}
+                    onChange={(e) => setCustomRatio(e.target.value)}
+                    placeholder="比例 (例如: 1.5 或 4:3)"
                     className="ratio-input"
-                    min="0.1"
-                    step="0.1"
-                  />
-                  <span style={{ color: '#333', fontWeight: 'bold' }}>:</span>
-                  <input
-                    type="number"
-                    value={customHeight}
-                    onChange={(e) => setCustomHeight(e.target.value)}
-                    placeholder="高度"
-                    className="ratio-input"
-                    min="0.1"
-                    step="0.1"
                   />
                 </div>
               </div>
@@ -600,23 +603,11 @@ function App() {
                   <div className="ratios-inputs">
                     <div className="ratio-input-group">
                       <input
-                        type="number"
-                        value={customWidth}
-                        onChange={(e) => setCustomWidth(e.target.value)}
-                        placeholder="寬度"
+                        type="text"
+                        value={customRatio}
+                        onChange={(e) => setCustomRatio(e.target.value)}
+                        placeholder="比例 (例如: 1.5 或 4:3)"
                         className="ratio-input"
-                        min="0.1"
-                        step="0.1"
-                      />
-                      <span style={{ color: '#333', fontWeight: 'bold' }}>:</span>
-                      <input
-                        type="number"
-                        value={customHeight}
-                        onChange={(e) => setCustomHeight(e.target.value)}
-                        placeholder="高度"
-                        className="ratio-input"
-                        min="0.1"
-                        step="0.1"
                       />
                     </div>
                   </div>
